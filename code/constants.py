@@ -2,12 +2,18 @@ import os
 
 BASE_PATH = '/home/ubuntu/hashemi/LXMERT'
 
-QA_TRAIN_PATH = os.path.join(BASE_PATH, 'data/train.json')
-QA_VAL_PATH = os.path.join(BASE_PATH, 'data/...')
+TRAIN_QA_PATH = os.path.join(BASE_PATH, 'data/train.json')
+VAL_QA_PATH = os.path.join(BASE_PATH, 'data/...')
 
-TRAIN_IMGFEAT = os.path.join(
+TRAIN2014_OBJ36_PATH = os.path.join(
     BASE_PATH, 'data/mscoco_imgfeat/train2014_obj36.tsv')
-VAL_IMGFEAT = os.path.join(BASE_PATH, 'data/mscoco_imgfeat/val2014_obj36.tsv')
+VAL2014_OBJ36_PATH = os.path.join(
+    BASE_PATH, 'data/mscoco_imgfeat/val2014_obj36.tsv')
+
+TRAIN_IMGFEAT_PATH = os.path.join(
+    BASE_PATH, 'data/mscoco_imgfeat/train/')
+VAL_IMGFEAT_PATH = os.path.join(
+    BASE_PATH, 'data/mscoco_imgfeat/val/')
 
 ANS2LABELS_PATH = os.path.join(BASE_PATH, 'data/trainval_ans2label.json')
 

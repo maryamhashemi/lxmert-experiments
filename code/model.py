@@ -1,5 +1,5 @@
 from constants import *
-from transformers import TFTFLxmertModel
+from transformers import TFLxmertModel
 from tensorflow.keras.models import Model
 from tensorflow.keras.activations import gelu
 from tensorflow.keras.layers import Input, Dense, LayerNormalization
@@ -11,7 +11,6 @@ def LxmertForQuestionAnswering():
     attention_mask = Input(shape=(SEQ_LENGTH,))
     visual_feats = Input(shape=(NUM_VISUAL_FEATURES, VISUAL_FEAT_DIM))
     normalized_boxes = Input(shape=(NUM_VISUAL_FEATURES, VISUAL_FEAT_DIM))
-    token_type_ids = Input(shape=(SEQ_LENGTH,))
 
     lxmert = TFLxmertModel.from_pretrained('unc-nlp/lxmert-base-uncased')
 
@@ -19,7 +18,6 @@ def LxmertForQuestionAnswering():
                            attention_mask=attention_mask,
                            visual_feats=visual_feats,
                            visual_pos=normalized_boxes,
-                           token_type_ids=token_type_ids,
                            training=True
                            )
 
@@ -30,14 +28,36 @@ def LxmertForQuestionAnswering():
     output = Dense(NUM_CLASSES, activation='softmax')(x)
 
     model = Model(inputs=[input_ids, attention_mask, visual_feats,
-                          normalized_boxes, token_type_ids], outputs=output)
+                          normalized_boxes], outputs=output)
 
     return model
 
 
 def Train():
-    train_generator = NotImplemented
-    val_generator = NotImplemented
+    logger.info("start loading %s", % (TRAIN_QA_PATH))
+    train_img_ids, train_ques_ids, train_ques_inputs, train_labels = get_QA(
+        TRAIN_QA_PATH)
+
+    logger.info("start loading %s", % (VAL_QA_PATH))
+    val_img_ids, val_ques_ids, val_ques_inputs, val_labels = get_QA(
+        VAL_QA_PATH)
+
+    train_generator = DataGenerator(train_img_ids,
+                                    train_ques_ids,
+                                    train_ques_inputs,
+                                    train_labels,
+                                    TRAIN_IMGFEAT_PATH,
+                                    BATCH_SIZE)
+    logger.info("successfully build train generator")
+
+    val_generator = DataGenerator(val_img_ids,
+                                  val_ques_ids,
+                                  val_ques_inputs,
+                                  val_labels,
+                                  VAL_IMGFEAT_PATH,
+                                  BATCH_SIZE,
+                                  False)
+    logger.info("successfully build val generator")
 
     model = LxmertForQuestionAnswering()
     optimizer = NotImplemented
