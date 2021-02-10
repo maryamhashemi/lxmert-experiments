@@ -61,8 +61,6 @@ def load_obj_tsv(fname, save_dir):
             new_item['boxes'] = copy_boxes
             new_item['features'] = feats
 
-            print(copy_boxes.shape)
-            print(feats.shape)
             with open(save_dir + name + '.pkl', 'wb') as f:
                 pickle.dump(new_item, f, pickle.HIGHEST_PROTOCOL)
             break

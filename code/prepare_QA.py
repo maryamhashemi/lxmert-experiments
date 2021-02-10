@@ -28,10 +28,10 @@ def get_QA(QAdata_path):
     QAdata_path -- a string that shows questions and answers file path.
 
     Return:
-    img_ids -- list of image ids.
-    ques_inputs -- list of question ids.
-    inputs -- tokenized question and language attention mask.
-    targets -- 
+    img_ids -- a list of image ids.
+    ques_inputs -- a list of question ids.
+    inputs -- tokenized questions and language attention masks.
+    targets -- labels
 
     """
     data = json.load(open(QAdata_path))

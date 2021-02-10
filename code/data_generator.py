@@ -2,8 +2,7 @@ import logging
 import numpy as np
 from constants import *
 from tensorflow.keras.utils import Sequence
-from tensorflow.keras.utils import normalize
-from tensorflow.keras.utils import to_categorical
+
 
 # logging
 logger = logging.getLogger(__name__)
