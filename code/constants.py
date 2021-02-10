@@ -1,4 +1,5 @@
 import os
+import json
 
 BASE_PATH = '/home/ubuntu/hashemi/LXMERT'
 
@@ -23,6 +24,8 @@ FIELDNAMES = ["img_id", "img_h", "img_w", "objects_id", "objects_conf",
 SEQ_LENGTH = 20
 EPOCHS = 4
 BATCH_SIZE = 32
-NUM_CLASSES = NotImplemented
-NUM_VISUAL_FEATURES = NotImplemented
-VISUAL_FEAT_DIM = NotImplemented
+LR = 5e-5
+NUM_CLASSES = len(json.load(open(ANS2LABELS_PATH)))
+NUM_VISUAL_FEATURES = 36
+VISUAL_FEAT_DIM = 2048
+VISUAL_POS_DIM = 4

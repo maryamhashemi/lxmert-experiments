@@ -3,6 +3,7 @@ from transformers import TFLxmertModel
 from tensorflow.keras.models import Model
 from tensorflow.keras.activations import gelu
 from tensorflow.keras.layers import Input, Dense, LayerNormalization
+from tensorflow.keras.optimizers import Adam
 
 
 def LxmertForQuestionAnswering():
@@ -10,7 +11,7 @@ def LxmertForQuestionAnswering():
     input_ids = Input(shape=(SEQ_LENGTH,))
     attention_mask = Input(shape=(SEQ_LENGTH,))
     visual_feats = Input(shape=(NUM_VISUAL_FEATURES, VISUAL_FEAT_DIM))
-    normalized_boxes = Input(shape=(NUM_VISUAL_FEATURES, VISUAL_FEAT_DIM))
+    normalized_boxes = Input(shape=(NUM_VISUAL_FEATURES, VISUAL_POS_DIM))
 
     lxmert = TFLxmertModel.from_pretrained('unc-nlp/lxmert-base-uncased')
 
@@ -25,7 +26,7 @@ def LxmertForQuestionAnswering():
 
     x = Dense(1536, activation=gelu)(last_hidden_states)
     x = LayerNormalization(epsilon=1e-12)(x)
-    output = Dense(NUM_CLASSES, activation='softmax')(x)
+    output = Dense(NUM_CLASSES, activation='linear')(x)
 
     model = Model(inputs=[input_ids, attention_mask, visual_feats,
                           normalized_boxes], outputs=output)
@@ -60,7 +61,7 @@ def Train():
     logger.info("successfully build val generator")
 
     model = LxmertForQuestionAnswering()
-    optimizer = NotImplemented
+    optimizer = Adam(learning_rate=LR)
     model.compile(optimizer=optimizer,
                   loss='categorical_crossentropy',
                   metrics=['accuracy'])
