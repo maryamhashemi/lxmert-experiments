@@ -17,6 +17,7 @@ VAL_IMGFEAT_PATH = os.path.join(
     BASE_PATH, 'data/mscoco_imgfeat/val/')
 
 ANS2LABELS_PATH = os.path.join(BASE_PATH, 'data/trainval_ans2label.json')
+LABELS2ANS_PATH = os.path.join(BASE_PATH, 'data/trainval_label2ans.json')
 
 FIELDNAMES = ["img_id", "img_h", "img_w", "objects_id", "objects_conf",
               "attrs_id", "attrs_conf", "num_boxes", "boxes", "features"]
@@ -30,3 +31,4 @@ NUM_VISUAL_FEATURES = 36
 VISUAL_FEAT_DIM = 2048
 VISUAL_POS_DIM = 4
 HISTORY_PATH = NotImplemented
+LABEL2ANS = json.load(open(LABELS2ANS_PATH))

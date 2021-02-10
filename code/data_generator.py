@@ -49,11 +49,11 @@ class DataGenerator(Sequence):
             indexes = self.indexes[index * self.batch_size:]
 
         # Generate data
-        [input_ids, attention_masks, visual_feats,
-            normalized_boxes], labels = self.__data_generation(indexes)
+        ques_ids, [input_ids, attention_masks, visual_feats,
+                   normalized_boxes], labels = self.__data_generation(indexes)
 
         logger.info("get %i/%i batches of data." % (index+1, self.__len__()))
-        return [input_ids, attention_masks, visual_feats, normalized_boxes], labels
+        return ques_ids, [input_ids, attention_masks, visual_feats, normalized_boxes], labels
 
     def on_epoch_end(self):
         """
@@ -71,6 +71,7 @@ class DataGenerator(Sequence):
         """
         batch = indexes.shape[0]
 
+        ques_ids = np.empty((batch,))
         input_ids = np.empty((batch, SEQ_LENGTH))
         attention_masks = np.empty((batch, SEQ_LENGTH))
         visual_feats = np.empty((batch, NUM_VISUAL_FEATURES, VISUAL_FEAT_DIM))
@@ -80,6 +81,7 @@ class DataGenerator(Sequence):
 
         for i, idx in enumerate(indexes):
             # Store sample
+            ques_ids[i] = self.ques_ids[idx]
             input_ids[i] = self.ques_inputs.input_ids[idx]
             attention_masks[i] = self.ques_inputs.input_ids[idx]
 
@@ -93,4 +95,4 @@ class DataGenerator(Sequence):
             labels[i] = self.labels[idx]
 
         logger.info("successfully create one batch of data.")
-        return [input_ids, attention_masks, visual_feats, normalized_boxes], labels
+        return ques_ids, [input_ids, attention_masks, visual_feats, normalized_boxes], labels
