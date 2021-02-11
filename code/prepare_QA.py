@@ -34,7 +34,15 @@ def get_QA(QAdata_path):
     targets -- labels
 
     """
-    data = json.load(open(QAdata_path))
+    data = []
+    for path in QAdata_path:
+        data += json.load(open(path))
+
+    quesid2data = {
+        d['question_id']: d
+        for d in data
+    }
+
     data = pd.DataFrame(data)
     logger.info("successfully load questions data.")
 
@@ -71,7 +79,8 @@ def get_QA(QAdata_path):
                 (str(ques_inputs.input_ids.shape)))
     logger.info("total number of labels is %s ." % (str(targets.shape)))
 
-    return img_ids, ques_ids, ques_inputs, targets
+    return img_ids, ques_ids, ques_inputs, targets, quesid2data
 
 
-img_ids, ques_ids, ques_inputs, labels = get_QA(TRAIN_QA_PATH)
+# img_ids, ques_ids, ques_inputs, labels, quesid2data = get_QA(
+#     [MINIVAL_QA_PATH])

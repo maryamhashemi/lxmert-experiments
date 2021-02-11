@@ -1,3 +1,5 @@
+import pickle
+from os import path
 import logging
 import numpy as np
 from constants import *
@@ -76,7 +78,7 @@ class DataGenerator(Sequence):
         attention_masks = np.empty((batch, SEQ_LENGTH))
         visual_feats = np.empty((batch, NUM_VISUAL_FEATURES, VISUAL_FEAT_DIM))
         normalized_boxes = np.empty(
-            (batch, NUM_VISUAL_FEATURES, VISUAL_FEAT_DIM))
+            (batch, NUM_VISUAL_FEATURES, VISUAL_POS_DIM))
         labels = np.empty((batch, NUM_CLASSES))
 
         for i, idx in enumerate(indexes):
@@ -85,8 +87,11 @@ class DataGenerator(Sequence):
             input_ids[i] = self.ques_inputs.input_ids[idx]
             attention_masks[i] = self.ques_inputs.input_ids[idx]
 
-            with open(self.imgfeat_path + str(self.img_ids[idx]) + '.pkl', 'rb') as f:
-                image = pickle.load(f)
+            for imgfeat_path in self.imgfeat_path:
+                if path.exists(imgfeat_path + str(self.img_ids[idx]) + '.pkl'):
+                    with open(imgfeat_path + str(self.img_ids[idx]) + '.pkl', 'rb') as f:
+                        image = pickle.load(f)
+                    break
 
             visual_feats[i] = image['features']
             normalized_boxes[i] = image['boxes']

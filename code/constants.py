@@ -4,7 +4,8 @@ import json
 BASE_PATH = '/home/ubuntu/hashemi/LXMERT'
 
 TRAIN_QA_PATH = os.path.join(BASE_PATH, 'data/train.json')
-VAL_QA_PATH = os.path.join(BASE_PATH, 'data/...')
+NOMINIVAL_QA_PATH = os.path.join(BASE_PATH, 'data/nominival.json')
+MINIVAL_QA_PATH = os.path.join(BASE_PATH, 'data/minival.json')
 
 TRAIN2014_OBJ36_PATH = os.path.join(
     BASE_PATH, 'data/mscoco_imgfeat/train2014_obj36.tsv')
@@ -23,7 +24,7 @@ FIELDNAMES = ["img_id", "img_h", "img_w", "objects_id", "objects_conf",
               "attrs_id", "attrs_conf", "num_boxes", "boxes", "features"]
 
 SEQ_LENGTH = 20
-EPOCHS = 4
+EPOCHS = 1
 BATCH_SIZE = 32
 LR = 5e-5
 NUM_CLASSES = len(json.load(open(ANS2LABELS_PATH)))

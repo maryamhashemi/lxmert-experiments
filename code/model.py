@@ -27,7 +27,7 @@ logger.addHandler(stream_handler)
 
 def LxmertForQuestionAnswering():
 
-    input_ids = Input(shape=(SEQ_LENGTH,))
+    input_ids = Input(shape=(SEQ_LENGTH,), dtype=tf.int32)
     attention_mask = Input(shape=(SEQ_LENGTH,))
     visual_feats = Input(shape=(NUM_VISUAL_FEATURES, VISUAL_FEAT_DIM))
     normalized_boxes = Input(shape=(NUM_VISUAL_FEATURES, VISUAL_POS_DIM))
@@ -38,10 +38,10 @@ def LxmertForQuestionAnswering():
                            attention_mask=attention_mask,
                            visual_feats=visual_feats,
                            visual_pos=normalized_boxes,
-                           training=True
-                           )
+                           return_dict=True,
+                           training=True)
 
-    last_hidden_states = lxmert_output.last_hidden_state
+    last_hidden_states = lxmert_output.pooled_output
 
     x = Dense(1536, activation=gelu)(last_hidden_states)
     x = LayerNormalization(epsilon=1e-12)(x)
@@ -54,19 +54,19 @@ def LxmertForQuestionAnswering():
 
 
 def Train():
-    logger.info("start loading %s", % (TRAIN_QA_PATH))
-    train_img_ids, train_ques_ids, train_ques_inputs, train_labels = get_QA(
-        TRAIN_QA_PATH)
+    logger.info("start loading %s and %s" % (TRAIN_QA_PATH, NOMINIVAL_QA_PATH))
+    train_img_ids, train_ques_ids, train_ques_inputs, train_labels, train_quesid2data = get_QA(
+        [TRAIN_QA_PATH, NOMINIVAL_QA_PATH])
 
-    logger.info("start loading %s", % (VAL_QA_PATH))
-    val_img_ids, val_ques_ids, val_ques_inputs, val_labels = get_QA(
-        VAL_QA_PATH)
+    logger.info("start loading %s" % (MINIVAL_QA_PATH))
+    val_img_ids, val_ques_ids, val_ques_inputs, val_labels, val_quesid2data = get_QA(
+        [MINIVAL_QA_PATH])
 
     train_generator = DataGenerator(train_img_ids,
                                     train_ques_ids,
                                     train_ques_inputs,
                                     train_labels,
-                                    TRAIN_IMGFEAT_PATH,
+                                    [TRAIN_IMGFEAT_PATH, VAL_IMGFEAT_PATH],
                                     BATCH_SIZE)
     logger.info("successfully build train generator")
 
@@ -82,80 +82,52 @@ def Train():
     model = LxmertForQuestionAnswering()
     optimizer = Adam(learning_rate=LR)
     loss_fn = binary_crossentropy
-    model.compile(optimizer=optimizer,
-                  loss='binary_crossentropy',
-                  metrics=['accuracy'])
+
     model.summary()
-
-    history = model.fit(x=train_generator,
-                        epochs=EPOCHS,
-                        validation_data=val_generator,
-                        workers=6,
-                        use_multiprocessing=True)
-
-    # save history
-    with open(HISTORY_PATH, 'w') as file:
-        json.dump(history.history, file)
+    fit(model, train_generator, val_generator, loss_fn,
+        optimizer, train_quesid2data, val_quesid2data)
 
     return
 
 
-def fit(model, train_generator, val_generator, loss_fn, optimizer, quesid2data):
+def fit(model, train_generator, val_generator, loss_fn, optimizer, train_quesid2data, val_quesid2data):
 
     for epoch in range(EPOCHS):
         logger.info("\nStart of epoch %d" % (epoch,))
         quesid2ans = {}
         # Iterate over the batches of the dataset.
         for step, (ques_ids, x_batch_train, y_batch_train) in enumerate(train_generator):
-
-            # Open a GradientTape to record the operations run
-            # during the forward pass, which enables auto-differentiation.
-            with tf.GradientTape() as tape:
-
-                # Run the forward pass of the layer.
-                # The operations that the layer applies
-                # to its inputs are going to be recorded
-                # on the GradientTape.
-                # Logits for this minibatch
-                logits = model(x_batch_train, training=True)
-
-                # Compute the loss value for this minibatch.
-                loss_value = loss_fn(y_batch_train, logits)
-
-            # Use the gradient tape to automatically retrieve
-            # the gradients of the trainable variables with respect to the loss.
-            grads = tape.gradient(loss_value, model.trainable_weights)
-
-            # Run one step of gradient descent by updating
-            # the value of the variables to minimize the loss.
-            optimizer.apply_gradients(zip(grads, model.trainable_weights))
-
-            score, label = logits.max(1)
-            for qid, l in zip(ques_id, label.numpy()):
+            logits, loss_value = train_step(x_batch_train,
+                                            y_batch_train,
+                                            model,
+                                            loss_fn,
+                                            optimizer)
+            label = tf.argmax(logits, axis=1)
+            for qid, l in zip(ques_ids, label):
                 ans = LABEL2ANS[l]
                 quesid2ans[qid.item()] = ans
 
-            # Log every 200 batches.
             if step % 100 == 0:
-                logger.info(
-                    "Training loss (for one batch) at step %d: %.4f"
-                    % (step, float(loss_value))
-                )
+                logger.info("\nstep %d" % (step))
+
         logger.info("\nEpoch %d: Train %0.2f\n" %
-                    (epoch, evaluate(quesid2ans, quesid2data) * 100.))
+                    (epoch, evaluate(quesid2ans, train_quesid2data) * 100.))
 
         # Run a validation loop at the end of each epoch.
         quesid2ans = {}
-        for ques_id, x_batch_val, y_batch_val in val_generator:
-            val_logits = model(x_batch_val, training=False)
-            score, label = val_logits.max(1)
-            for qid, l in zip(ques_id, label.numpy()):
+        for ques_ids, x_batch_val, y_batch_val in val_generator:
+            val_logits = val_step(x_batch_train, y_batch_train, model)
+
+            score, label = tf.argmax(val_logits, axis=1)
+            for qid, l in zip(ques_ids, label):
                 ans = LABEL2ANS[l]
                 quesid2ans[qid.item()] = ans
 
         logger.info("\nEpoch %d: Val %0.2f\n" %
-                    (epoch, evaluate(quesid2ans, quesid2data) * 100.))
+                    (epoch, evaluate(quesid2ans, val_quesid2data) * 100.))
 
+    model.save_weights('fine_tuning_LXMERT.h5')
+    logger.info("\n save model weights into fine_tuning_LXMERT.h5")
     return
 
 
@@ -167,3 +139,24 @@ def evaluate(quesid2ans, quesid2data):
         if ans in label:
             score += label[ans]
     return score / len(quesid2ans)
+
+
+@tf.function
+def train_step(x, y, model, loss_fn, optimizer):
+
+    with tf.GradientTape() as tape:
+        logits = model(x, training=True)
+        loss_value = loss_fn(y, logits)
+    grads = tape.gradient(loss_value, model.trainable_weights)
+    optimizer.apply_gradients(zip(grads, model.trainable_weights))
+
+    return logits, loss_value
+
+
+@tf.function
+def val_step(x, y, model):
+    val_logits = model(x, training=False)
+    return val_logits
+
+
+Train()
