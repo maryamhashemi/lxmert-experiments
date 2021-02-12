@@ -1,7 +1,7 @@
 import logging
 from constants import *
 import tensorflow as tf
-from transformers import TFLxmertModel
+from transformers import TFLxmertModel, LxmertForQuestionAnswering
 from tensorflow.keras.models import Model
 from tensorflow.keras.activations import gelu
 from tensorflow.keras.layers import Input, Dense, LayerNormalization
@@ -25,7 +25,7 @@ logger.addHandler(file_handler)
 logger.addHandler(stream_handler)
 
 
-def LxmertForQuestionAnswering():
+def TFLxmertForQuestionAnswering():
 
     input_ids = Input(shape=(SEQ_LENGTH,), dtype=tf.int32)
     attention_mask = Input(shape=(SEQ_LENGTH,))
@@ -53,14 +53,19 @@ def LxmertForQuestionAnswering():
     return model
 
 
-def Train():
+def Train(loading_weights_path=None, saving_weights_path=None):
     logger.info("start loading %s and %s" % (TRAIN_QA_PATH, NOMINIVAL_QA_PATH))
     train_img_ids, train_ques_ids, train_ques_inputs, train_labels, train_quesid2data = get_QA(
         [TRAIN_QA_PATH, NOMINIVAL_QA_PATH])
 
+    # logger.info("start loading %s" %
+    #             (MINIVAL_QA_PATH))
+    # train_img_ids, train_ques_ids, train_ques_inputs, train_labels, train_quesid2data = get_QA([
+    #                                                                                            MINIVAL_QA_PATH])
+
     logger.info("start loading %s" % (MINIVAL_QA_PATH))
-    val_img_ids, val_ques_ids, val_ques_inputs, val_labels, val_quesid2data = get_QA(
-        [MINIVAL_QA_PATH])
+    val_img_ids, val_ques_ids, val_ques_inputs, val_labels, val_quesid2data = get_QA([
+                                                                                     MINIVAL_QA_PATH])
 
     train_generator = DataGenerator(train_img_ids,
                                     train_ques_ids,
@@ -74,23 +79,25 @@ def Train():
                                   val_ques_ids,
                                   val_ques_inputs,
                                   val_labels,
-                                  VAL_IMGFEAT_PATH,
+                                  [VAL_IMGFEAT_PATH],
                                   BATCH_SIZE,
                                   False)
     logger.info("successfully build val generator")
 
-    model = LxmertForQuestionAnswering()
+    model = TFLxmertForQuestionAnswering()
+    if (loading_weights_path is not None):
+        model.load_weights(loading_weights_path)
     optimizer = Adam(learning_rate=LR)
     loss_fn = binary_crossentropy
 
     model.summary()
     fit(model, train_generator, val_generator, loss_fn,
-        optimizer, train_quesid2data, val_quesid2data)
+        optimizer, train_quesid2data, val_quesid2data, saving_weights_path)
 
     return
 
 
-def fit(model, train_generator, val_generator, loss_fn, optimizer, train_quesid2data, val_quesid2data):
+def fit(model, train_generator, val_generator, loss_fn, optimizer, train_quesid2data, val_quesid2data, saving_weights_path):
 
     for epoch in range(EPOCHS):
         logger.info("\nStart of epoch %d" % (epoch,))
@@ -116,9 +123,9 @@ def fit(model, train_generator, val_generator, loss_fn, optimizer, train_quesid2
         # Run a validation loop at the end of each epoch.
         quesid2ans = {}
         for ques_ids, x_batch_val, y_batch_val in val_generator:
-            val_logits = val_step(x_batch_train, y_batch_train, model)
+            val_logits = val_step(x_batch_val, y_batch_val, model)
 
-            score, label = tf.argmax(val_logits, axis=1)
+            label = tf.argmax(val_logits, axis=1)
             for qid, l in zip(ques_ids, label):
                 ans = LABEL2ANS[l]
                 quesid2ans[qid.item()] = ans
@@ -126,8 +133,8 @@ def fit(model, train_generator, val_generator, loss_fn, optimizer, train_quesid2
         logger.info("\nEpoch %d: Val %0.2f\n" %
                     (epoch, evaluate(quesid2ans, val_quesid2data) * 100.))
 
-    model.save_weights('fine_tuning_LXMERT.h5')
-    logger.info("\n save model weights into fine_tuning_LXMERT.h5")
+        model.save_weights(saving_weights_path)
+        logger.info("\nsave model weights into fine_tuning_LXMERT.h5")
     return
 
 
@@ -159,4 +166,49 @@ def val_step(x, y, model):
     return val_logits
 
 
-Train()
+def build_model_with_pretrain_weights():
+    logger.info("start loading %s" % (MINIVAL_QA_PATH))
+    val_img_ids, val_ques_ids, val_ques_inputs, val_labels, val_quesid2data = get_QA([
+                                                                                     MINIVAL_QA_PATH])
+    val_generator = DataGenerator(val_img_ids,
+                                  val_ques_ids,
+                                  val_ques_inputs,
+                                  val_labels,
+                                  [VAL_IMGFEAT_PATH],
+                                  BATCH_SIZE,
+                                  False)
+    logger.info("successfully build val generator")
+
+    model = TFLxmertForQuestionAnswering()
+    tf_weights = model.get_weights()
+
+    lxmert_pytorch = LxmertForQuestionAnswering.from_pretrained(
+        "unc-nlp/lxmert-vqa-uncased")
+
+    pt_weights = []
+    for param, weight in zip(lxmert_pytorch.parameters(), tf_weights):
+        if(param.data.shape == weight.shape):
+            pt_weights.append(param.data)
+        else:
+            pt_weights.append(param.data.T)
+
+    model.set_weights(pt_weights)
+
+    # Run a validation loop at the end of each epoch.
+    quesid2ans = {}
+    for ques_ids, x_batch_val, y_batch_val in val_generator:
+        val_logits = val_step(x_batch_val, y_batch_val, model)
+
+        label = tf.argmax(val_logits, axis=1)
+        for qid, l in zip(ques_ids, label):
+            ans = LABEL2ANS[l]
+            quesid2ans[qid.item()] = ans
+
+    logger.info("\nVal accuracy: %0.2f\n" %
+                (evaluate(quesid2ans, val_quesid2data) * 100.))
+    return
+
+
+Train(loading_weights_path="fine_tuning_LXMERT.h5",
+      saving_weights_path="fine_tuning_LXMERT.h5")
+# build_model_with_pretrain_weights()
