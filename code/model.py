@@ -6,7 +6,8 @@ from tensorflow.keras.models import Model
 from tensorflow.keras.activations import gelu
 from tensorflow.keras.layers import Input, Dense, LayerNormalization
 from tensorflow.keras.optimizers import Adam
-from tensorflow.keras.losses import binary_crossentropy
+from tensorflow_addons.optimizers import AdamW
+from tensorflow.keras.losses import BinaryCrossentropy
 from data_generator import *
 from prepare_QA import *
 
@@ -38,7 +39,6 @@ def TFLxmertForQuestionAnswering():
                            attention_mask=attention_mask,
                            visual_feats=visual_feats,
                            visual_pos=normalized_boxes,
-                           return_dict=True,
                            training=True)
 
     last_hidden_states = lxmert_output.pooled_output
@@ -85,10 +85,16 @@ def Train(loading_weights_path=None, saving_weights_path=None):
     logger.info("successfully build val generator")
 
     model = TFLxmertForQuestionAnswering()
+    model.save_weights("initial_weights.h5")
+    logger.info("successfully save initial weights.")
+
     if (loading_weights_path is not None):
         model.load_weights(loading_weights_path)
+
+    # optimizer = AdamW(learning_rate=LR, epsilon=1e-6,
+    #                   weight_decay=0.01, clipnorm=5.)
     optimizer = Adam(learning_rate=LR)
-    loss_fn = binary_crossentropy
+    loss_fn = BinaryCrossentropy(from_logits=True)
 
     model.summary()
     fit(model, train_generator, val_generator, loss_fn,
@@ -112,7 +118,7 @@ def fit(model, train_generator, val_generator, loss_fn, optimizer, train_quesid2
             label = tf.argmax(logits, axis=1)
             for qid, l in zip(ques_ids, label):
                 ans = LABEL2ANS[l]
-                quesid2ans[qid.item()] = ans
+                quesid2ans[qid] = ans
 
             if step % 100 == 0:
                 logger.info("\nstep %d" % (step))
@@ -128,7 +134,7 @@ def fit(model, train_generator, val_generator, loss_fn, optimizer, train_quesid2
             label = tf.argmax(val_logits, axis=1)
             for qid, l in zip(ques_ids, label):
                 ans = LABEL2ANS[l]
-                quesid2ans[qid.item()] = ans
+                quesid2ans[qid] = ans
 
         logger.info("\nEpoch %d: Val %0.2f\n" %
                     (epoch, evaluate(quesid2ans, val_quesid2data) * 100.))
@@ -198,7 +204,8 @@ def build_model_with_pretrain_weights():
     quesid2ans = {}
     for ques_ids, x_batch_val, y_batch_val in val_generator:
         val_logits = val_step(x_batch_val, y_batch_val, model)
-
+        # batch_size * num_class
+        # batch_size * 1
         label = tf.argmax(val_logits, axis=1)
         for qid, l in zip(ques_ids, label):
             ans = LABEL2ANS[l]
@@ -209,6 +216,6 @@ def build_model_with_pretrain_weights():
     return
 
 
-Train(loading_weights_path="fine_tuning_LXMERT.h5",
+Train(loading_weights_path=None,
       saving_weights_path="fine_tuning_LXMERT.h5")
 # build_model_with_pretrain_weights()
