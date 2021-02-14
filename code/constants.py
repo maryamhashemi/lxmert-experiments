@@ -24,7 +24,7 @@ FIELDNAMES = ["img_id", "img_h", "img_w", "objects_id", "objects_conf",
               "attrs_id", "attrs_conf", "num_boxes", "boxes", "features"]
 
 SEQ_LENGTH = 20
-EPOCHS = 4
+EPOCHS = 5
 BATCH_SIZE = 32
 LR = 5e-5
 NUM_CLASSES = len(json.load(open(ANS2LABELS_PATH)))

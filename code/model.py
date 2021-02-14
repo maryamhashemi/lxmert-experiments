@@ -140,7 +140,7 @@ def fit(model, train_generator, val_generator, loss_fn, optimizer, train_quesid2
                     (epoch, evaluate(quesid2ans, val_quesid2data) * 100.))
 
         model.save_weights(saving_weights_path)
-        logger.info("\nsave model weights into fine_tuning_LXMERT.h5")
+        logger.info("\nsave model weights into %s" % saving_weights_path)
     return
 
 
@@ -216,6 +216,6 @@ def build_model_with_pretrain_weights():
     return
 
 
-Train(loading_weights_path=None,
-      saving_weights_path="fine_tuning_LXMERT.h5")
+# Train(loading_weights_path="fine_tuning_LXMERT_3.h5",
+#       saving_weights_path="fine_tuning_LXMERT_4.h5")
 # build_model_with_pretrain_weights()
